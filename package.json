@@ -1,0 +1,36 @@
+{
+  "name": "tencent-cloud-sdk",
+  "description": "Tencent Cloud SDK For Serverless Framework",
+  "version": "0.0.1",
+  "main": "./index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "Tencent Cloud",
+    "Serverless Framework",
+    "Cloud function"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --fix --cache"
+  },
+  "author": "Dfounderliu",
+  "license": "Apache",
+  "dependencies": {
+    "dot-qs": "0.2.0",
+    "object-assign": "3.0.0",
+    "configstore": "3.1.2",
+    "mime-types": "2.1.24",
+    "request": "2.88.0",
+    "xml2js": "0.4.19"
+  },
+  "devDependencies": {
+    "babel-eslint": "9.0.0",
+    "eslint": "5.6.0",
+    "eslint-config-prettier": "^3.6.0",
+    "eslint-plugin-import": "^2.18.0",
+    "eslint-plugin-prettier": "^3.0.1",
+    "prettier": "^1.18.2"
+  }
+}
