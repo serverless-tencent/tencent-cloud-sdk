@@ -1,2 +1,2 @@
-var tencentCloud = require('./lib/index')
+var tencentCloud = require('./src/index')
 module.exports = tencentCloud

@@ -3,7 +3,7 @@ const qs = require('querystring')
 const dotQs = require('dot-qs')
 const https = require('https')
 const crypto = require('crypto')
-const cos = require('./cos/cos')
+const cos = require('../lib/cos/cos')
 
 var defaults = {
   signatureMethod: 'HmacSHA1',
