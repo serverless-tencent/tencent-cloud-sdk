@@ -29,6 +29,10 @@ class TencentCloudClient {
       },
       data
     )
+    const token = this.credentials.token || this.credentials.Token
+    if (token) {
+      param.Token = token
+    }
     if (this.credentials.token) {
       param.token = this.credentials.token
     }
