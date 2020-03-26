@@ -1,7 +1,7 @@
 const assign = require('object-assign')
 const qs = require('querystring')
 const dotQs = require('dot-qs')
-const https = require('https')
+const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
 
@@ -65,22 +65,39 @@ class TencentCloudClient {
 
   async doCloudApiRequest(data) {
     const httpBody = await this.cloudApiGenerateQueryString(data)
-    const options = {
-      hostname: this.service.host,
-      path: this.service.path + '?' + httpBody
-    }
-    return new Promise(function(resolve, reject) {
-      const req = https.get(options, function(res) {
-        res.setEncoding('utf8')
-        res.on('data', function(chunk) {
-          resolve(JSON.parse(chunk))
-        })
-      })
-      req.on('error', function(e) {
-        reject(e.message)
-      })
-      // req.write(httpBody)
-      req.end()
+
+    // const options = {
+    //   hostname: this.service.host,
+    //   path: this.service.path + '?' + httpBody
+    // }
+    // return new Promise(function(resolve, reject) {
+    //   const req = https.get(options, function(res) {
+    //     res.setEncoding('utf8')
+    //     res.on('data', function(chunk) {
+    //       resolve(JSON.parse(chunk))
+    //     })
+    //   })
+    //   req.on('error', function(e) {
+    //     reject(e.message)
+    //   })
+    //   // req.write(httpBody)
+    //   req.end()
+    // })
+
+    const url = `https://${this.service.host}${this.service.path}?${httpBody}`
+    return new Promise(function(resolve, rejecte) {
+      request(
+        {
+          url: url,
+          method: 'GET'
+        },
+        function(error, response, body) {
+          if (!error && response.statusCode == 200) {
+            resolve(JSON.parse(body))
+          }
+          rejecte(error)
+        }
+      )
     })
   }
 }
