@@ -176,6 +176,99 @@ class DomainClient {
 
 class CosClient extends cos {}
 
+class SlsMonitor {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'monitor.tencentcloudapi.com',
+      path: '/'
+    }).doCloudApiRequest(data)
+  }
+
+  async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
+    // const cred = new Credential(credentials.secretId, credentials.secretKey);
+    // const client = new MonitorClient(cred, region || 'ap-guangzhou');
+    const client = new TencentCloudClient(this.credentials, {
+      host: 'monitor.tencentcloudapi.com',
+      path: '/'
+    })
+    const req = {
+      Action: 'GetMonitorData',
+      Version: '2018-07-24',
+    }
+
+    const metrics = ['Duration', 'Invocation', 'Error', 'ConcurrentExecutions', 'ConfigMem', 'FunctionErrorPercentage', 'Http2xx', 'Http432', 'Http433', 'Http434', 'Http4xx', 'Mem', 'MemDuration'];
+
+    const result = {
+        rangeStart: rangeTime.rangeStart,
+        rangeEnd: rangeTime.rangeEnd,
+        metrics: []
+    }
+    
+    const requestHandlers = []
+    for (var i = 0; i < metrics.length; i++) {
+        req.Namespace = 'qce/scf_v2';
+        req.MetricName = metrics[i];
+        req.Period = period;
+        req.StartTime = rangeTime.rangeStart;
+        req.EndTime = rangeTime.rangeEnd;
+        req.Instances = [{ 
+            Dimensions: [
+                {
+                    Name: 'functionName',
+                    Value: funcName,
+                },
+                {
+                    Name: 'version',
+                    Value: version || '$latest',
+                },
+                {
+                    Name: 'namespace',
+                    Value: ns,
+                }
+            ]
+        }];
+        requestHandlers.push(client.doCloudApiRequest(req)) 
+    }
+    return new Promise((resolve, reject)=> {
+        Promise.all(requestHandlers).then((results) => {
+            for (var i = 0; i < results.length; i++) {
+                const response = results[i].Response;
+                const metric = {
+                    type: response.MetricName,
+                    title: response.MetricName,
+                    values: [],
+                    total: 0
+                }
+
+                response.DataPoints[0].Timestamps.forEach((val, i) => {
+                    if (!metric.values[i]) {
+                        metric.values[i] = {
+                            timestamp: val
+                        }
+                    } else {
+                        metric.values[i].timestamp = val
+                    }
+
+                    if (response.DataPoints[0].Values[i] != undefined) {
+                        metric.values[i].value = response.DataPoints[0].Values[i]
+                        metric.total = Math.round(metric.total + metric.values[i].value)
+                    }
+
+                })
+                result.metrics.push(metric)
+            }
+            resolve(result)
+            
+        }).catch((error) => {
+            reject(error)
+        })
+    })
+  }
+}
+
 module.exports = {
   ScfClient,
   TagClient,
@@ -183,5 +276,6 @@ module.exports = {
   CnsClient,
   ApigwClient,
   DomainClient,
-  CosClient
+  CosClient,
+  SlsMonitor
 }

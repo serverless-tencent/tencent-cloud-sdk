@@ -40,3 +40,21 @@ cosClient.getService(function(err, data) {
 ```
 
 参考地址：https://cloud.tencent.com/document/product/436/8629
+
+## Scf 监控接口
+
+```
+const { slsMonitor } = require('./src/index')
+
+const slsClient = new slsMonitor(secret)
+
+const rangeTime = {
+    rangeStart: 'begin Time Object', 
+    rangeEnd: 'end Time Object'
+}
+const period = 3600
+const ret = await slsClient.getScfMetrics('ap-guangzhou', rangeTime, period, 'funcName', 'default', '$latest')
+console.log(ret)
+```
+
+参考地址: https://cloud.tencent.com/document/product/248/31649
