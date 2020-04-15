@@ -150,6 +150,18 @@ class CamClient {
   }
 }
 
+class CamV2Client {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'cam.api.qcloud.com',
+      path: '/v2/index.php'
+    }).doCloudApiRequest(data)
+  }
+}
+
 class CnsClient {
   constructor(credentials = {}) {
     this.credentials = credentials
@@ -180,6 +192,7 @@ module.exports = {
   ScfClient,
   TagClient,
   CamClient,
+  CamV2Client,
   CnsClient,
   ApigwClient,
   DomainClient,
