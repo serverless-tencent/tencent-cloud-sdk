@@ -6,5 +6,6 @@ module.exports = {
   tag: require('./client').TagClient,
   apigw: require('./client').ApigwClient,
   domain: require('./client').DomainClient,
-  cos: require('./client').CosClient
+  cos: require('./client').CosClient,
+  tcb: require('./client').TcbClient
 }

@@ -126,6 +126,18 @@ class TagClient {
   }
 }
 
+class TcbClient {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'tcb.tencentcloudapi.com',
+      path: '/'
+    }).doCloudApiRequest(data)
+  }
+}
+
 class ApigwClient {
   constructor(credentials = {}) {
     this.credentials = credentials
@@ -196,5 +208,6 @@ module.exports = {
   CnsClient,
   ApigwClient,
   DomainClient,
-  CosClient
+  CosClient,
+  TcbClient
 }
