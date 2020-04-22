@@ -4,6 +4,7 @@ const dotQs = require('dot-qs')
 const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
+const util = require('util')
 
 var defaults = {
   signatureMethod: 'HmacSHA1',
@@ -180,6 +181,24 @@ class SlsMonitor {
   constructor(credentials = {}) {
     this.credentials = credentials
   }
+
+  static rfc3339(t) {
+    const year = t.getFullYear()
+    const month = t.getMonth() + 1
+    const day = t.getDate()
+    const hours = t.getHours()
+    const minutes = t.getMinutes()
+    const sec = t.getSeconds()
+
+    const offset = Math.abs(t.getTimezoneOffset())
+    const offsetH = Math.floor(offset / 60)
+    const offsetM = offset % 60
+
+    return util.format('%d-%s-%sT%s:%s:%s+%s:%s', year, month.toString().padStart(2, 0),
+      day.toString().padStart(2, 0), hours.toString().padStart(2, 0), minutes.toString().padStart(2, 0), sec.toString().padStart(2, 0), offsetH.toString().padStart(2, 0),
+      offsetM.toString().padStart(2, 0))
+  }
+
   async request(data) {
     return await new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
@@ -187,9 +206,32 @@ class SlsMonitor {
     }).doCloudApiRequest(data)
   }
 
-  async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
-    // const cred = new Credential(credentials.secretId, credentials.secretKey);
-    // const client = new MonitorClient(cred, region || 'ap-guangzhou');
+  aggregationByDay(responses) {
+    const len = responses.length
+    for (var i = 0; i < len; i++) {
+      const result = responses[i]
+      const tlen = result.Response.DataPoints[0].Timestamps.length
+      const values = result.Response.DataPoints[0].Values
+      let total = values[0]
+
+      const newTimes = []
+      const newValues = []
+      for (var n = 0; n < tlen; n++) {
+        if (n > 0 && !(n % 24)) {
+          newTimes.push(result.Response.DataPoints[0].Timestamps[n])
+          const v = total / 24
+          newValues.push(parseFloat((v.toFixed(2)), 10))
+          total = values[n]
+        } else {
+          total += values[n]
+        }
+      }
+      result.Response.DataPoints[0].Timestamps = newTimes
+      result.Response.DataPoints[0].Values = newValues
+    }
+  }
+
+  async getScfMetrics(region, rangeTime, funcName, ns, version) {
     const client = new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
       path: '/'
@@ -198,12 +240,32 @@ class SlsMonitor {
       Action: 'GetMonitorData',
       Version: '2018-07-24',
     }
+    if (rangeTime.rangeEnd <= rangeTime.rangeStart) {
+      throw new Error('The rangeStart provided is after the rangeEnd')
+    }
 
-    const metrics = ['Duration', 'Invocation', 'Error', 'ConcurrentExecutions', 'ConfigMem', 'FunctionErrorPercentage', 'Http2xx', 'Http432', 'Http433', 'Http434', 'Http4xx', 'Mem', 'MemDuration'];
+    const metrics = ['Duration', 'Invocation', 'Error', 'ConcurrentExecutions', 'ConfigMem', 'FunctionErrorPercentage', 'Http2xx', 'Http432', 'Http433', 'Http434', 'Http4xx', 'Mem', 'MemDuration', 'Syserr'];
 
+    const diffMinutes = (rangeTime.rangeEnd - rangeTime.rangeStart) / 1000 / 60
+    let period, 
+        aggrFlag = false
+
+    if (diffMinutes <= 16) {
+      // 16 mins
+      period = 60 // 1 min
+    } else if (diffMinutes <= 61) {
+      // 1 hour
+      period = 300 // 5 mins
+    } else if (diffMinutes <= 1500) {
+      // 24 hours
+      period = 3600 // hour
+    } else {
+      period = 3600 // day
+      aggrFlag = true
+    }
     const result = {
-        rangeStart: rangeTime.rangeStart,
-        rangeEnd: rangeTime.rangeEnd,
+        rangeStart: SlsMonitor.rfc3339(rangeTime.rangeStart),
+        rangeEnd: SlsMonitor.rfc3339(rangeTime.rangeEnd),
         metrics: []
     }
     
@@ -212,8 +274,8 @@ class SlsMonitor {
         req.Namespace = 'qce/scf_v2';
         req.MetricName = metrics[i];
         req.Period = period;
-        req.StartTime = rangeTime.rangeStart;
-        req.EndTime = rangeTime.rangeEnd;
+        req.StartTime = SlsMonitor.rfc3339(rangeTime.rangeStart);
+        req.EndTime = SlsMonitor.rfc3339(rangeTime.rangeEnd);
         req.Instances = [{ 
             Dimensions: [
                 {
@@ -234,34 +296,10 @@ class SlsMonitor {
     }
     return new Promise((resolve, reject)=> {
         Promise.all(requestHandlers).then((results) => {
-            for (var i = 0; i < results.length; i++) {
-                const response = results[i].Response;
-                const metric = {
-                    type: response.MetricName,
-                    title: response.MetricName,
-                    values: [],
-                    total: 0
-                }
+          if (aggrFlag) 
+            this.aggregationByDay(results)
 
-                response.DataPoints[0].Timestamps.forEach((val, i) => {
-                    if (!metric.values[i]) {
-                        metric.values[i] = {
-                            timestamp: val
-                        }
-                    } else {
-                        metric.values[i].timestamp = val
-                    }
-
-                    if (response.DataPoints[0].Values[i] != undefined) {
-                        metric.values[i].value = response.DataPoints[0].Values[i]
-                        metric.total = Math.round(metric.total + metric.values[i].value)
-                    }
-
-                })
-                result.metrics.push(metric)
-            }
-            resolve(result)
-            
+          resolve(results)
         }).catch((error) => {
             reject(error)
         })
