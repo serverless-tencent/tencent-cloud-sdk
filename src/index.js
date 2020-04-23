@@ -7,5 +7,6 @@ module.exports = {
   apigw: require('./client').ApigwClient,
   domain: require('./client').DomainClient,
   cos: require('./client').CosClient,
+  slsMonitor: require('./client').SlsMonitor,
   tcb: require('./client').TcbClient
 }

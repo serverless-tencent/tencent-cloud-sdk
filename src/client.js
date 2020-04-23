@@ -4,6 +4,7 @@ const dotQs = require('dot-qs')
 const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
+const util = require('util')
 
 var defaults = {
   signatureMethod: 'HmacSHA1',
@@ -200,6 +201,104 @@ class DomainClient {
 
 class CosClient extends cos {}
 
+class SlsMonitor {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'monitor.tencentcloudapi.com',
+      path: '/'
+    }).doCloudApiRequest(data)
+  }
+
+  aggregationByDay(responses) {
+    const len = responses.length
+    for (var i = 0; i < len; i++) {
+      const result = responses[i]
+      const tlen = result.Response.DataPoints[0].Timestamps.length
+      const values = result.Response.DataPoints[0].Values
+      let total = values[0]
+
+      const newTimes = []
+      const newValues = []
+      for (var n = 0; n < tlen; n++) {
+        if (n > 0 && !(n % 24)) {
+          newTimes.push(result.Response.DataPoints[0].Timestamps[n])
+          const v = total / 24
+          newValues.push(parseFloat((v.toFixed(2)), 10))
+          total = values[n]
+        } else {
+          total += values[n]
+        }
+      }
+      result.Response.DataPoints[0].Timestamps = newTimes
+      result.Response.DataPoints[0].Values = newValues
+    }
+  }
+
+  async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
+    const client = new TencentCloudClient(this.credentials, {
+      host: 'monitor.tencentcloudapi.com',
+      path: '/'
+    })
+    const req = {
+      Action: 'GetMonitorData',
+      Version: '2018-07-24',
+    }
+
+    const metrics = ['Duration', 'Invocation', 'Error', 'ConcurrentExecutions', 'ConfigMem', 'FunctionErrorPercentage', 'Http2xx', 'Http432', 'Http433', 'Http434', 'Http4xx', 'Mem', 'MemDuration', 'Syserr'];
+
+    let aggrFlag = false
+    if (period == 86400) {
+      period = 3600 // day
+      aggrFlag = true
+    }
+    const result = {
+        rangeStart: rangeTime.rangeStart,
+        rangeEnd: rangeTime.rangeEnd,
+        metrics: []
+    }
+    
+    const requestHandlers = []
+    for (var i = 0; i < metrics.length; i++) {
+        req.Namespace = 'qce/scf_v2';
+        req.MetricName = metrics[i];
+        req.Period = period;
+        req.StartTime = rangeTime.rangeStart;
+        req.EndTime = rangeTime.rangeEnd;
+        req.Instances = [{ 
+            Dimensions: [
+                {
+                    Name: 'functionName',
+                    Value: funcName,
+                },
+                {
+                    Name: 'version',
+                    Value: version || '$latest',
+                },
+                {
+                    Name: 'namespace',
+                    Value: ns,
+                }
+            ]
+        }];
+        requestHandlers.push(client.doCloudApiRequest(req)) 
+    }
+    return new Promise((resolve, reject)=> {
+        Promise.all(requestHandlers).then((results) => {
+          if (aggrFlag) 
+            this.aggregationByDay(results)
+
+          resolve(results)
+        }).catch((error) => {
+            reject(error)
+        })
+    })
+  }
+}
+
 module.exports = {
   ScfClient,
   TagClient,
@@ -209,5 +308,6 @@ module.exports = {
   ApigwClient,
   DomainClient,
   CosClient,
+  SlsMonitor,
   TcbClient
 }
