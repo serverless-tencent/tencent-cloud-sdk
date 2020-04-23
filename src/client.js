@@ -127,6 +127,18 @@ class TagClient {
   }
 }
 
+class TcbClient {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'tcb.tencentcloudapi.com',
+      path: '/'
+    }).doCloudApiRequest(data)
+  }
+}
+
 class ApigwClient {
   constructor(credentials = {}) {
     this.credentials = credentials
@@ -147,6 +159,18 @@ class CamClient {
     return await new TencentCloudClient(this.credentials, {
       host: 'cam.tencentcloudapi.com',
       path: '/'
+    }).doCloudApiRequest(data)
+  }
+}
+
+class CamV2Client {
+  constructor(credentials = {}) {
+    this.credentials = credentials
+  }
+  async request(data) {
+    return await new TencentCloudClient(this.credentials, {
+      host: 'cam.api.qcloud.com',
+      path: '/v2/index.php'
     }).doCloudApiRequest(data)
   }
 }
@@ -182,23 +206,6 @@ class SlsMonitor {
     this.credentials = credentials
   }
 
-  static rfc3339(t) {
-    const year = t.getFullYear()
-    const month = t.getMonth() + 1
-    const day = t.getDate()
-    const hours = t.getHours()
-    const minutes = t.getMinutes()
-    const sec = t.getSeconds()
-
-    const offset = Math.abs(t.getTimezoneOffset())
-    const offsetH = Math.floor(offset / 60)
-    const offsetM = offset % 60
-
-    return util.format('%d-%s-%sT%s:%s:%s+%s:%s', year, month.toString().padStart(2, 0),
-      day.toString().padStart(2, 0), hours.toString().padStart(2, 0), minutes.toString().padStart(2, 0), sec.toString().padStart(2, 0), offsetH.toString().padStart(2, 0),
-      offsetM.toString().padStart(2, 0))
-  }
-
   async request(data) {
     return await new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
@@ -231,7 +238,7 @@ class SlsMonitor {
     }
   }
 
-  async getScfMetrics(region, rangeTime, funcName, ns, version) {
+  async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
     const client = new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
       path: '/'
@@ -240,32 +247,17 @@ class SlsMonitor {
       Action: 'GetMonitorData',
       Version: '2018-07-24',
     }
-    if (rangeTime.rangeEnd <= rangeTime.rangeStart) {
-      throw new Error('The rangeStart provided is after the rangeEnd')
-    }
 
     const metrics = ['Duration', 'Invocation', 'Error', 'ConcurrentExecutions', 'ConfigMem', 'FunctionErrorPercentage', 'Http2xx', 'Http432', 'Http433', 'Http434', 'Http4xx', 'Mem', 'MemDuration', 'Syserr'];
 
-    const diffMinutes = (rangeTime.rangeEnd - rangeTime.rangeStart) / 1000 / 60
-    let period, 
-        aggrFlag = false
-
-    if (diffMinutes <= 16) {
-      // 16 mins
-      period = 60 // 1 min
-    } else if (diffMinutes <= 61) {
-      // 1 hour
-      period = 300 // 5 mins
-    } else if (diffMinutes <= 1500) {
-      // 24 hours
-      period = 3600 // hour
-    } else {
+    let aggrFlag = false
+    if (period == 86400) {
       period = 3600 // day
       aggrFlag = true
     }
     const result = {
-        rangeStart: SlsMonitor.rfc3339(rangeTime.rangeStart),
-        rangeEnd: SlsMonitor.rfc3339(rangeTime.rangeEnd),
+        rangeStart: rangeTime.rangeStart,
+        rangeEnd: rangeTime.rangeEnd,
         metrics: []
     }
     
@@ -274,8 +266,8 @@ class SlsMonitor {
         req.Namespace = 'qce/scf_v2';
         req.MetricName = metrics[i];
         req.Period = period;
-        req.StartTime = SlsMonitor.rfc3339(rangeTime.rangeStart);
-        req.EndTime = SlsMonitor.rfc3339(rangeTime.rangeEnd);
+        req.StartTime = rangeTime.rangeStart;
+        req.EndTime = rangeTime.rangeEnd;
         req.Instances = [{ 
             Dimensions: [
                 {
@@ -311,9 +303,11 @@ module.exports = {
   ScfClient,
   TagClient,
   CamClient,
+  CamV2Client,
   CnsClient,
   ApigwClient,
   DomainClient,
   CosClient,
-  SlsMonitor
+  SlsMonitor,
+  TcbClient
 }
