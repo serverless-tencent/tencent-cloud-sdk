@@ -49,8 +49,8 @@ const { slsMonitor } = require('./src/index')
 const slsClient = new slsMonitor(secret)
 
 const rangeTime = {
-    rangeStart: 'begin Time Object', 
-    rangeEnd: 'end Time Object'
+    rangeStart: 'begin Time string rfc3339 format', // 2018-09-22T19:51:23+08:00
+    rangeEnd: 'end Time string rfc3339 format' // 2018-09-22T19:51:23+08:00
 }
 const period = 3600
 const ret = await slsClient.getScfMetrics('ap-guangzhou', rangeTime, period, 'funcName', 'default', '$latest')
