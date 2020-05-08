@@ -4,7 +4,6 @@ const dotQs = require('dot-qs')
 const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
-const util = require('util')
 const _ = require('lodash')
 
 var defaults = {
@@ -225,18 +224,20 @@ class SlsMonitor {
     for (var i = 0; i < len; i++) {
       const item = datas[i]
       if (i > 0 && !((i + 1) % period)) {
-        let v = (val.Value + item.Value)
-        if (!(~~v == v)) 
+        let v = val.Value + item.Value
+        if (!(~~v == v)) {
           v = parseFloat(v.toFixed(2), 10)
+        }
         newValues.push({
-          Timestamp: val.Timestamp, 
+          Timestamp: val.Timestamp,
           Value: v
         })
         val.Timestamp = 0
         val.Value = 0
       } else {
-        if (val.Timestamp == 0)
+        if (val.Timestamp == 0) {
           val.Timestamp = item.Timestamp
+        }
         val.Value += item.Value
       }
     }
@@ -265,16 +266,18 @@ class SlsMonitor {
 
   percentile(array, k) {
     const len = array.length
-    if (len == 0)
+    if (len == 0) {
       return 0
+    }
 
-    if (len == 1)
+    if (len == 1) {
       return array[0]
+    }
 
     const ret = (len - 1) * (k / 100)
     const i = Math.floor(ret)
     const j = ret % 1
-    
+
     const val = (1 - j) * array[i] + j * array[i + 1]
     if (!(~~val == val)) {
       return parseFloat(val.toFixed(3), 10)
@@ -282,9 +285,10 @@ class SlsMonitor {
     return val
   }
 
-  aggrDurationP (responses, srcPeriod, dstPeriod) {
-    if (srcPeriod == dstPeriod || srcPeriod > dstPeriod) 
+  aggrDurationP(responses, srcPeriod, dstPeriod) {
+    if (srcPeriod == dstPeriod || srcPeriod > dstPeriod) {
       return
+    }
 
     const threshold = dstPeriod / srcPeriod
     const len = responses.length
@@ -296,21 +300,23 @@ class SlsMonitor {
         continue
       }
 
-      if (result.Response.MetricName != 'Duration') 
+      if (result.Response.MetricName != 'Duration') {
         continue
-      
-      if (i == 0) 
+      }
+
+      if (i == 0) {
         times = responses[i + 1].Response.DataPoints[0].Timestamps
-      else if (i == (len - 1)) 
+      } else if (i == len - 1) {
         times = responses[i - 1].Response.DataPoints[0].Timestamps
-      else
+      } else {
         times = responses[i + 1].Response.DataPoints[0].Timestamps
+      }
 
       const tlen = result.Response.DataPoints[0].Timestamps.length
       const values = result.Response.DataPoints[0].Values
       let total = []
       // let timestamp = 0
-     
+
       const p95 = []
       const p50 = []
       for (var n = 0; n < tlen; n++) {
@@ -340,8 +346,7 @@ class SlsMonitor {
 
       // if (timestamp != 0)
       //   times.push(timestamp)
-      
-      
+
       result.Response.MetricName = 'Duration-P50'
       result.Response.DataPoints[0].Timestamps = times
       result.Response.DataPoints[0].Values = p50
@@ -356,15 +361,15 @@ class SlsMonitor {
 
       responses.push(p95Object)
     }
-
   }
 
   aggregationByDay(responses) {
     const len = responses.length
     for (var i = 0; i < len; i++) {
       const result = responses[i]
-      if (result.Response.MetricName.match("Duration")) 
+      if (result.Response.MetricName.match('Duration')) {
         continue
+      }
 
       const tlen = result.Response.DataPoints[0].Timestamps.length
       const values = result.Response.DataPoints[0].Values
@@ -379,14 +384,16 @@ class SlsMonitor {
           newTimes.push(timestamp)
           timestamp = 0
           let v = (total + result.Response.DataPoints[0].Values[n]) / 24
-          if (!(~~v == v)) 
+          if (!(~~v == v)) {
             v = parseFloat(v.toFixed(2), 10)
+          }
           newValues.push(v)
           total = values[n]
         } else {
           total += values[n]
-          if (timestamp == 0)
+          if (timestamp == 0) {
             timestamp = result.Response.DataPoints[0].Timestamps[n]
+          }
         }
       }
       result.Response.DataPoints[0].Timestamps = newTimes
@@ -395,17 +402,16 @@ class SlsMonitor {
   }
 
   aggrLatencyP(datas, srcPeriod, dstPeriod) {
-    if (srcPeriod == dstPeriod || srcPeriod > dstPeriod) 
+    if (srcPeriod == dstPeriod || srcPeriod > dstPeriod) {
       return
+    }
 
     const len = datas.length
-    const newValues = []
-
     const threshold = dstPeriod / srcPeriod
 
     let vals = []
     let timestamp = 0
-     
+
     const times = []
     const p95 = []
     const p50 = []
@@ -423,8 +429,9 @@ class SlsMonitor {
         vals = []
       } else {
         vals.push(item.Value)
-        if (timestamp == 0)
+        if (timestamp == 0) {
           timestamp = item.Timestamp
+        }
       }
     }
 
@@ -438,12 +445,13 @@ class SlsMonitor {
   aggrCustomDatas(responses, period, metricAttributeHash) {
     const len = responses.length
 
-    let latencyIdx = -1;
+    let latencyIdx = -1
     let latencyDatas = null
     for (let i = 0; i < len; i++) {
       const response = responses[i]
-      if (!response.Response.Data || response.Response.Data.length == 0)
+      if (!response.Response.Data || response.Response.Data.length == 0) {
         continue
+      }
 
       const attribute = metricAttributeHash[response.Response.Data[0].AttributeId]
       let newValues = response.Response.Data[0].Values
@@ -453,7 +461,7 @@ class SlsMonitor {
         latencyDatas = this.aggrLatencyP(newValues, 60, period)
         continue
       }
-      
+
       switch (period) {
         case 300:
           newValues = this.mergeCustom5Min(response.Response.Data[0].Values)
@@ -462,8 +470,7 @@ class SlsMonitor {
           newValues = this.mergeCustomHours(response.Response.Data[0].Values)
           break
         case 86400:
-          newValues = this.mergeCustomDay(response.
-            Response.Data[0].Values)
+          newValues = this.mergeCustomDay(response.Response.Data[0].Values)
           break
       }
       response.Response.Data[0].Values = newValues
@@ -471,8 +478,9 @@ class SlsMonitor {
       response.Response.Data[0].AttributeName = attribute.AttributeName
     }
 
-    if (!(latencyIdx != -1 && latencyDatas != null)) 
-      return 
+    if (!(latencyIdx != -1 && latencyDatas != null)) {
+      return
+    }
 
     const newP95Vals = []
     const newP50Vals = []
@@ -533,16 +541,22 @@ class SlsMonitor {
 
   async getCustomMetrics(region, announceInstance, rangeTime, period) {
     const metricsRule = [
-      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_latency$/i, 
-      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_(\d+)$/i, 
-      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)$/i, 
-      /^request$/i, /^latency$/i, /^error$/i, /^4xx$/i, /^5xx$/i]
-    
-    const filterAttributeName = function (name, metricsRule) {
-      const len = metricsRule.length
+      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_latency$/i,
+      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_(\d+)$/i,
+      /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)$/i,
+      /^request$/i,
+      /^latency$/i,
+      /^error$/i,
+      /^4xx$/i,
+      /^5xx$/i
+    ]
+
+    const filterAttributeName = function(name, mRule) {
+      const len = mRule.length
       for (var i = 0; i < len; i++) {
-        if (name.match(metricsRule[i]))
+        if (name.match(mRule[i])) {
           return true
+        }
       }
     }
     const metricAttributeHash = {}
@@ -553,19 +567,27 @@ class SlsMonitor {
 
       if (filterAttributeName(metricAttribute.AttributeName, metricsRule)) {
         metricAttributeHash[metricAttribute.AttributeId] = metricAttribute
-        requestHandlers.push(this.describeCCMInstanceDatas(metricAttribute.AttributeId, announceInstance, rangeTime.rangeStart, rangeTime.rangeEnd))
+        requestHandlers.push(
+          this.describeCCMInstanceDatas(
+            metricAttribute.AttributeId,
+            announceInstance,
+            rangeTime.rangeStart,
+            rangeTime.rangeEnd
+          )
+        )
       }
     }
 
-    return new Promise((resolve, reject)=> {
-        Promise.all(requestHandlers).then((results) => {
+    return new Promise((resolve, reject) => {
+      Promise.all(requestHandlers)
+        .then((results) => {
           this.aggrCustomDatas(results, period, metricAttributeHash)
           resolve(results)
-        }).catch((error) => {
+        })
+        .catch((error) => {
           reject(error)
         })
     })
-    
   }
 
   async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
@@ -575,62 +597,63 @@ class SlsMonitor {
     })
     const req = {
       Action: 'GetMonitorData',
-      Version: '2018-07-24',
+      Version: '2018-07-24'
     }
 
     const metrics = ['Invocation', 'Error', 'Duration']
 
     let durationPeriod
-    const result = {
-        rangeStart: rangeTime.rangeStart,
-        rangeEnd: rangeTime.rangeEnd,
-        metrics: []
-    }
-    
+
     const requestHandlers = []
     for (var i = 0; i < metrics.length; i++) {
-        if (metrics[i] == 'Duration') {
-          if (period == 3600) 
-            req.Period = durationPeriod = 60
-          else if (period == 86400)
-            req.Period = durationPeriod = 3600
-          else
-            req.Period = durationPeriod = 60
-        } else
-            req.Period = period
-        req.Namespace = 'qce/scf_v2'
-        req.MetricName = metrics[i]
-        
-        req.StartTime = rangeTime.rangeStart
-        req.EndTime = rangeTime.rangeEnd
-        req.Instances = [{ 
-            Dimensions: [
-                {
-                    Name: 'functionName',
-                    Value: funcName,
-                },
-                {
-                    Name: 'version',
-                    Value: version || '$latest',
-                },
-                {
-                    Name: 'namespace',
-                    Value: ns,
-                }
-            ]
-        }]
-        requestHandlers.push(client.doCloudApiRequest(req)) 
+      if (metrics[i] == 'Duration') {
+        if (period == 3600) {
+          req.Period = durationPeriod = 60
+        } else if (period == 86400) {
+          req.Period = durationPeriod = 3600
+        } else {
+          req.Period = durationPeriod = 60
+        }
+      } else {
+        req.Period = period
+      }
+      req.Namespace = 'qce/scf_v2'
+      req.MetricName = metrics[i]
+
+      req.StartTime = rangeTime.rangeStart
+      req.EndTime = rangeTime.rangeEnd
+      req.Instances = [
+        {
+          Dimensions: [
+            {
+              Name: 'functionName',
+              Value: funcName
+            },
+            {
+              Name: 'version',
+              Value: version || '$latest'
+            },
+            {
+              Name: 'namespace',
+              Value: ns
+            }
+          ]
+        }
+      ]
+      requestHandlers.push(client.doCloudApiRequest(req))
     }
-    return new Promise((resolve, reject)=> {
-        Promise.all(requestHandlers).then((results) => {
+    return new Promise((resolve, reject) => {
+      Promise.all(requestHandlers)
+        .then((results) => {
           this.aggrDurationP(results, durationPeriod, period)
 
-          // if (aggrFlag) 
+          // if (aggrFlag)
           //   this.aggregationByDay(results)
 
           resolve(results)
-        }).catch((error) => {
-            reject(error)
+        })
+        .catch((error) => {
+          reject(error)
         })
     })
   }

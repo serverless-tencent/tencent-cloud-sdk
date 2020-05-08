@@ -64,3 +64,5 @@ obj/
 # Tests
 !tests/**/*.zip
 
+yarn.lock
+package-lock.json

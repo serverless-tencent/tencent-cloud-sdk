@@ -1,7 +1,7 @@
 {
   "name": "tencent-cloud-sdk",
   "description": "Tencent Cloud SDK For Serverless Framework",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "main": "./index.js",
   "publishConfig": {
     "access": "public"
@@ -12,11 +12,26 @@
     "Cloud function"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint . --fix --cache"
+    "test": "npm run lint",
+    "commitlint": "commitlint -f HEAD@{15}",
+    "lint": "eslint --ext .js,.ts,.tsx .",
+    "lint:fix": "eslint --fix --ext .js,.ts,.tsx ."
   },
-  "author": "Dfounderliu",
-  "license": "Apache",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-push": "npm run lint"
+    }
+  },
+  "lint-staged": {
+    "**/*.{js,ts,tsx}": [
+      "npm run lint",
+      "git add ."
+    ]
+  },
+  "author": "Tencent Cloud, Inc.",
+  "license": "MIT",
   "dependencies": {
     "caseless": "0.12.0",
     "combined-stream": "1.0.6",
@@ -44,11 +59,15 @@
     "xml2js": "0.4.19"
   },
   "devDependencies": {
+    "@commitlint/cli": "^8.3.5",
+    "@commitlint/config-conventional": "^8.3.4",
     "babel-eslint": "9.0.0",
     "eslint": "5.6.0",
     "eslint-config-prettier": "^3.6.0",
     "eslint-plugin-import": "^2.18.0",
     "eslint-plugin-prettier": "^3.0.1",
+    "husky": "^4.2.5",
+    "lint-staged": "^10.2.2",
     "prettier": "^1.18.2"
   }
 }
