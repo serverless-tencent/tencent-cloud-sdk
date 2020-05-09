@@ -315,7 +315,9 @@ class SlsMonitor {
       const tlen = result.Response.DataPoints[0].Timestamps.length
       const values = result.Response.DataPoints[0].Values
       let total = []
-      // let timestamp = 0
+      if (tlen == 0) {
+        return
+      }
 
       const p95 = []
       const p50 = []
