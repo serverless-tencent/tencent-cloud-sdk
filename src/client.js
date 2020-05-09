@@ -213,6 +213,14 @@ class SlsMonitor {
     }).doCloudApiRequest(data)
   }
 
+  static sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve()
+      }, ms)
+    })
+  }
+
   mergeCustomByPeriod(datas, period) {
     const len = datas.length
     const newValues = []
@@ -542,6 +550,7 @@ class SlsMonitor {
   }
 
   async getCustomMetrics(region, announceInstance, rangeTime, period) {
+    const apiQPSLimit = 8
     const metricsRule = [
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_latency$/i,
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_(\d+)$/i,
@@ -553,6 +562,18 @@ class SlsMonitor {
       /^5xx$/i
     ]
 
+    const getMetricsResponse = (promiseHandlers) => {
+      return new Promise((resolve, reject) => {
+        Promise.all(promiseHandlers)
+          .then((results) => {
+            resolve(results)
+          })
+          .catch((error) => {
+            reject(error)
+          })
+      })
+    }
+
     const filterAttributeName = function(name, mRule) {
       const len = mRule.length
       for (var i = 0; i < len; i++) {
@@ -560,36 +581,48 @@ class SlsMonitor {
           return true
         }
       }
+      return false
     }
+
     const metricAttributeHash = {}
-    const requestHandlers = []
+    let requestHandlers = []
+    let responses = []
+    let results
     const attributes = await this.describeAttributes(0, 100)
     for (var i = 0; i < attributes.Response.Data.TotalCount; i++) {
       const metricAttribute = attributes.Response.Data.Data[i]
 
-      if (filterAttributeName(metricAttribute.AttributeName, metricsRule)) {
-        metricAttributeHash[metricAttribute.AttributeId] = metricAttribute
-        requestHandlers.push(
-          this.describeCCMInstanceDatas(
-            metricAttribute.AttributeId,
-            announceInstance,
-            rangeTime.rangeStart,
-            rangeTime.rangeEnd
-          )
+      if (!filterAttributeName(metricAttribute.AttributeName, metricsRule)) {
+        continue
+      }
+      metricAttributeHash[metricAttribute.AttributeId] = metricAttribute
+      requestHandlers.push(
+        this.describeCCMInstanceDatas(
+          metricAttribute.AttributeId,
+          announceInstance,
+          rangeTime.rangeStart,
+          rangeTime.rangeEnd
         )
+      )
+
+      if (i > 0 && !(i % apiQPSLimit)) {
+        if (i != apiQPSLimit) {
+          await SlsMonitor.sleep(1000)
+        }
+        results = await getMetricsResponse(requestHandlers)
+        responses = responses.concat(results)
+        requestHandlers = []
       }
     }
-
-    return new Promise((resolve, reject) => {
-      Promise.all(requestHandlers)
-        .then((results) => {
-          this.aggrCustomDatas(results, period, metricAttributeHash)
-          resolve(results)
-        })
-        .catch((error) => {
-          reject(error)
-        })
-    })
+    if (requestHandlers.length == 0) {
+      this.aggrCustomDatas(responses, period, metricAttributeHash)
+      return responses
+    }
+    await SlsMonitor.sleep(600)
+    results = await getMetricsResponse(requestHandlers)
+    responses = responses.concat(results)
+    this.aggrCustomDatas(responses, period, metricAttributeHash)
+    return responses
   }
 
   async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
