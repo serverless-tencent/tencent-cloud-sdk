@@ -550,7 +550,7 @@ class SlsMonitor {
   }
 
   async getCustomMetrics(region, announceInstance, rangeTime, period) {
-    const apiQPSLimit = 8
+    const apiQPSLimit = 100
     const metricsRule = [
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_latency$/i,
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_(\d+)$/i,
@@ -588,7 +588,9 @@ class SlsMonitor {
     let requestHandlers = []
     let responses = []
     let results
-    const attributes = await this.describeAttributes(0, 100)
+    let firstRequestFlag = true
+
+    const attributes = await this.describeAttributes(0, 200)
     for (var i = 0; i < attributes.Response.Data.TotalCount; i++) {
       const metricAttribute = attributes.Response.Data.Data[i]
 
@@ -605,10 +607,11 @@ class SlsMonitor {
         )
       )
 
-      if (i > 0 && !(i % apiQPSLimit)) {
-        if (i != apiQPSLimit) {
+      if (!((i + 1) % apiQPSLimit)) {
+        if (i + 1 != apiQPSLimit) {
           await SlsMonitor.sleep(1000)
         }
+        firstRequestFlag = false
         results = await getMetricsResponse(requestHandlers)
         responses = responses.concat(results)
         requestHandlers = []
@@ -618,7 +621,10 @@ class SlsMonitor {
       this.aggrCustomDatas(responses, period, metricAttributeHash)
       return responses
     }
-    await SlsMonitor.sleep(600)
+    if (!firstRequestFlag) {
+      await SlsMonitor.sleep(1000)
+    }
+
     results = await getMetricsResponse(requestHandlers)
     responses = responses.concat(results)
     this.aggrCustomDatas(responses, period, metricAttributeHash)
