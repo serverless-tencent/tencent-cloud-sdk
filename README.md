@@ -1,6 +1,6 @@
 # 腾讯云 SDK
 
-## 云API 接口使用方法
+## 云 API 接口使用方法
 
 ```
 const { apigw } = require('../lib/index')
