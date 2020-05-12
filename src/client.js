@@ -14,15 +14,16 @@ var defaults = {
 }
 
 class TencentCloudClient {
-  constructor(credentials = {}, service = {}) {
+  constructor(credentials = {}, service = {}, options = {}) {
     this.credentials = credentials
     this.service = service
+    this.options = options
   }
 
   async cloudApiGenerateQueryString(data) {
     var param = assign(
       {
-        Region: defaults.Region,
+        Region: this.options.region || defaults.Region,
         SecretId: this.credentials.SecretId,
         Timestamp: Math.round(Date.now() / 1000),
         Nonce: Math.round(Math.random() * 65535),
@@ -618,6 +619,7 @@ class SlsMonitor {
       }
     }
     if (requestHandlers.length == 0) {
+      console.log('getCustomMetrics', JSON.stringify(responses))
       this.aggrCustomDatas(responses, period, metricAttributeHash)
       return responses
     }
@@ -627,15 +629,22 @@ class SlsMonitor {
 
     results = await getMetricsResponse(requestHandlers)
     responses = responses.concat(results)
+    console.log('getCustomMetrics', JSON.stringify(responses))
     this.aggrCustomDatas(responses, period, metricAttributeHash)
     return responses
   }
 
   async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
-    const client = new TencentCloudClient(this.credentials, {
-      host: 'monitor.tencentcloudapi.com',
-      path: '/'
-    })
+    const client = new TencentCloudClient(
+      this.credentials,
+      {
+        host: 'monitor.tencentcloudapi.com',
+        path: '/'
+      },
+      {
+        region: region
+      }
+    )
     const req = {
       Action: 'GetMonitorData',
       Version: '2018-07-24'
@@ -686,11 +695,8 @@ class SlsMonitor {
     return new Promise((resolve, reject) => {
       Promise.all(requestHandlers)
         .then((results) => {
+          console.log('getScfMetrics', JSON.stringify(results))
           this.aggrDurationP(results, durationPeriod, period)
-
-          // if (aggrFlag)
-          //   this.aggregationByDay(results)
-
           resolve(results)
         })
         .catch((error) => {
