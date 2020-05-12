@@ -1,6 +1,11 @@
-# 腾讯云 SDK
+# Tencent Cloud SDK
 
-## 云 API 接口使用方法
+[![npm](https://img.shields.io/npm/v/tencent-cloud-sdk)](http://www.npmtrends.com/tencent-cloud-sdk)
+[![NPM downloads](http://img.shields.io/npm/dm/tencent-cloud-sdk.svg?style=flat-square)](http://www.npmtrends.com/tencent-cloud-sdk)
+[![Build Status](https://travis-ci.com/serverless-tencent/tencent-cloud-sdk.svg?branch=master)](https://travis-ci.com/serverless-tencent/tencent-cloud-sdk)
+[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
+
+## How to using Cloud API?
 
 ```
 const { apigw } = require('../lib/index')
@@ -20,9 +25,9 @@ apigwClient.request(data)
 
 ```
 
-参考地址： https://cloud.tencent.com/document/api
+Refer to: https://cloud.tencent.com/document/api
 
-## COS 接口使用方法
+## How to use COS?
 
 ```
 const { cos } = require('../lib/index')
@@ -39,9 +44,9 @@ cosClient.getService(function(err, data) {
 });
 ```
 
-参考地址：https://cloud.tencent.com/document/product/436/8629
+Refer to: https://cloud.tencent.com/document/product/436/8629
 
-## Scf 监控接口
+## Monitor for SCF
 
 ```
 const { slsMonitor } = require('./src/index')
@@ -57,4 +62,31 @@ const ret = await slsClient.getScfMetrics('ap-guangzhou', rangeTime, period, 'fu
 console.log(ret)
 ```
 
-参考地址: https://cloud.tencent.com/document/product/248/31649
+Refer to: https://cloud.tencent.com/document/product/248/31649
+
+## Development
+
+All `git commit` mesage must follow below syntax:
+
+```bash
+type(scope?): subject  #scope is optional
+```
+
+support type：
+
+```bash
+- **feat**: add new feature
+- **fix**: fix bug or patch feature
+- **ci**: CI
+- **chore**: modify config, nothing to do with production code
+- **docs**: create or modifiy documents
+- **refactor**: refactor project
+- **revert**: revert
+- **test**: test
+```
+
+Most of time, we just use `feat` and `fix`.
+
+## License
+
+Copyright (c) 2019-present Tencent Cloud, Inc.
