@@ -226,29 +226,29 @@ class SlsMonitor {
     const len = datas.length
     const newValues = []
 
-    const val = {
-      Timestamp: 0,
-      Value: 0
-    }
+    let val = 0
     for (var i = 0; i < len; i++) {
       const item = datas[i]
       if (i > 0 && !((i + 1) % period)) {
-        let v = val.Value + item.Value
+        let v = val + item.Value
         if (!(~~v == v)) {
           v = parseFloat(v.toFixed(2), 10)
         }
         newValues.push({
-          Timestamp: val.Timestamp,
+          Timestamp: datas[i + 1 - period].Timestamp,
           Value: v
         })
-        val.Timestamp = 0
-        val.Value = 0
+        val = 0
       } else {
-        if (val.Timestamp == 0) {
-          val.Timestamp = item.Timestamp
-        }
-        val.Value += item.Value
+        val += item.Value
       }
+    }
+
+    if (len % period) {
+      newValues.push({
+        Timestamp: datas[len - (len % period)].Timestamp,
+        Value: val
+      })
     }
     return newValues
   }
@@ -301,7 +301,7 @@ class SlsMonitor {
 
     const threshold = dstPeriod / srcPeriod
     const len = responses.length
-    let times = []
+    const times = []
     for (var i = 0; i < len; i++) {
       const result = responses[i]
       if (result.Response.Error) {
@@ -311,14 +311,6 @@ class SlsMonitor {
 
       if (result.Response.MetricName != 'Duration') {
         continue
-      }
-
-      if (i == 0) {
-        times = responses[i + 1].Response.DataPoints[0].Timestamps
-      } else if (i == len - 1) {
-        times = responses[i - 1].Response.DataPoints[0].Timestamps
-      } else {
-        times = responses[i + 1].Response.DataPoints[0].Timestamps
       }
 
       const tlen = result.Response.DataPoints[0].Timestamps.length
@@ -336,27 +328,19 @@ class SlsMonitor {
           total.sort((v1, v2) => {
             return v1 - v2
           })
-          // times.push(timestamp)
+          times.push(result.Response.DataPoints[0].Timestamps[n + 1 - threshold])
           p95.push(this.percentile(total, 95))
           p50.push(this.percentile(total, 50))
-          // timestamp = 0
           total = []
         } else {
           total.push(values[n])
-          // if (timestamp == 0)
-          //   timestamp = result.Response.DataPoints[0].Timestamps[n]
         }
       }
-      if (tlen < threshold) {
-        if (total.length > 0) {
-          p95.push(this.percentile(total, 95))
-          p50.push(this.percentile(total, 50))
-        }
-        times = [result.Response.DataPoints[0].Timestamps[n - 1]]
+      if (total.length > 0) {
+        p95.push(this.percentile(total, 95))
+        p50.push(this.percentile(total, 50))
+        times.push(result.Response.DataPoints[0].Timestamps[tlen - (tlen % threshold)])
       }
-
-      // if (timestamp != 0)
-      //   times.push(timestamp)
 
       result.Response.MetricName = 'Duration-P50'
       result.Response.DataPoints[0].Timestamps = times
@@ -371,44 +355,6 @@ class SlsMonitor {
       result.Response.Period = dstPeriod
 
       responses.push(p95Object)
-    }
-  }
-
-  aggregationByDay(responses) {
-    const len = responses.length
-    for (var i = 0; i < len; i++) {
-      const result = responses[i]
-      if (result.Response.MetricName.match('Duration')) {
-        continue
-      }
-
-      const tlen = result.Response.DataPoints[0].Timestamps.length
-      const values = result.Response.DataPoints[0].Values
-
-      let total = 0
-      let timestamp = 0
-      const newTimes = []
-      const newValues = []
-
-      for (var n = 0; n < tlen; n++) {
-        if (n > 0 && !((n + 1) % 24)) {
-          newTimes.push(timestamp)
-          timestamp = 0
-          let v = (total + result.Response.DataPoints[0].Values[n]) / 24
-          if (!(~~v == v)) {
-            v = parseFloat(v.toFixed(2), 10)
-          }
-          newValues.push(v)
-          total = values[n]
-        } else {
-          total += values[n]
-          if (timestamp == 0) {
-            timestamp = result.Response.DataPoints[0].Timestamps[n]
-          }
-        }
-      }
-      result.Response.DataPoints[0].Timestamps = newTimes
-      result.Response.DataPoints[0].Values = newValues
     }
   }
 
@@ -590,7 +536,6 @@ class SlsMonitor {
     let responses = []
     let results
     let firstRequestFlag = true
-
     const attributes = await this.describeAttributes(0, 200)
     for (var i = 0; i < attributes.Response.Data.TotalCount; i++) {
       const metricAttribute = attributes.Response.Data.Data[i]
@@ -626,7 +571,6 @@ class SlsMonitor {
     if (!firstRequestFlag) {
       await SlsMonitor.sleep(1000)
     }
-
     results = await getMetricsResponse(requestHandlers)
     responses = responses.concat(results)
     console.log('getCustomMetrics', JSON.stringify(responses))
@@ -652,24 +596,12 @@ class SlsMonitor {
 
     const metrics = ['Invocation', 'Error', 'Duration']
 
-    let durationPeriod
-
+    const reqPeriod = 60
     const requestHandlers = []
     for (var i = 0; i < metrics.length; i++) {
-      if (metrics[i] == 'Duration') {
-        if (period == 3600) {
-          req.Period = durationPeriod = 60
-        } else if (period == 86400) {
-          req.Period = durationPeriod = 3600
-        } else {
-          req.Period = durationPeriod = 60
-        }
-      } else {
-        req.Period = period
-      }
       req.Namespace = 'qce/scf_v2'
       req.MetricName = metrics[i]
-
+      req.Period = reqPeriod
       req.StartTime = rangeTime.rangeStart
       req.EndTime = rangeTime.rangeEnd
       req.Instances = [
@@ -696,13 +628,172 @@ class SlsMonitor {
       Promise.all(requestHandlers)
         .then((results) => {
           console.log('getScfMetrics', JSON.stringify(results))
-          this.aggrDurationP(results, durationPeriod, period)
+          this.aggrDatas(results, reqPeriod, period)
           resolve(results)
         })
         .catch((error) => {
           reject(error)
         })
     })
+  }
+
+  // scf response timestamp data discontinuous
+  padContent(dataPoints, period) {
+    const times = []
+    const values = []
+
+    const len = dataPoints.Timestamps.length
+    for (var i = 0; i < len; i++) {
+      let timestamp = dataPoints.Timestamps[i]
+      const value = dataPoints.Values[i]
+      times.push(timestamp)
+      values.push(value)
+
+      if (i < len - 1) {
+        const nextTimestamp = dataPoints.Timestamps[i + 1]
+        while (nextTimestamp - timestamp > period) {
+          timestamp += period
+          times.push(timestamp)
+          values.push(0)
+        }
+      }
+    }
+    return {
+      times: times,
+      values: values
+    }
+  }
+
+  mergeByPeriod(datas, srcPeriod, dstPeriod) {
+    if (srcPeriod == dstPeriod || srcPeriod > dstPeriod) {
+      return null
+    }
+
+    const tlen = datas.Timestamps.length
+    const period = dstPeriod / srcPeriod
+    const values = []
+    const times = []
+    if (tlen == 0) {
+      return null
+    }
+
+    let val = 0
+    for (var n = 0; n < tlen; n++) {
+      if (n > 0 && !((n + 1) % period)) {
+        let v = val + datas.Values[n]
+        if (!(~~v == v)) {
+          v = parseFloat(v.toFixed(2), 10)
+        }
+        times.push(datas.Timestamps[n + 1 - period])
+        values.push(v)
+        val = 0
+      } else {
+        val += datas.Values[n]
+      }
+    }
+
+    if (tlen % period) {
+      times.push(datas.Timestamps[tlen - (tlen % period)])
+      values.push(val)
+    }
+    return {
+      times: times,
+      values: values
+    }
+  }
+
+  padPart(startTime, endTime, period) {
+    const padTimes = []
+    const padValues = []
+
+    while (startTime < endTime) {
+      padTimes.push(startTime)
+      padValues.push(0)
+      startTime += period
+    }
+    return { timestamp: padTimes, values: padValues }
+  }
+
+  aggrDatas(responses, srcPeriod, dstPeriod) {
+    const len = responses.length
+
+    let startTime, endTime, startTimestamp, endTimestamp
+    for (var i = 0; i < len; i++) {
+      const response = responses[i].Response
+      if (response.Error) {
+        console.log(JSON.stringify(response.Error), response.RequestId)
+        continue
+      }
+      if (response.DataPoints[0].Timestamps.length == 0) {
+        continue
+      }
+      const dataPoints = this.padContent(response.DataPoints[0], srcPeriod)
+      response.DataPoints[0].Timestamps = dataPoints.times
+      response.DataPoints[0].Values = dataPoints.values
+
+      // response timestamp is tz +08:00
+      startTime = new Date(response.StartTime)
+      endTime = new Date(response.EndTime)
+
+      let offset = 0
+      if (startTime.getTimezoneOffset() == 0) {
+        offset = 8 * 60 * 60
+      }
+      startTimestamp = startTime.getTime() / 1000 - offset
+      endTimestamp = endTime.getTime() / 1000 - offset
+
+      const startPads = this.padPart(
+        startTimestamp,
+        response.DataPoints[0].Timestamps[0],
+        response.Period
+      )
+      if (startPads.timestamp.length > 0) {
+        response.DataPoints[0].Timestamps = startPads.timestamp.concat(
+          response.DataPoints[0].Timestamps
+        )
+      }
+      if (startPads.values.length > 0) {
+        response.DataPoints[0].Values = startPads.values.concat(response.DataPoints[0].Values)
+      }
+
+      const endPads = this.padPart(
+        response.DataPoints[0].Timestamps[response.DataPoints[0].Timestamps.length - 1],
+        endTimestamp + response.Period,
+        response.Period
+      )
+      if (endPads.timestamp.length > 0) {
+        endPads.timestamp.shift()
+        response.DataPoints[0].Timestamps = response.DataPoints[0].Timestamps.concat(
+          endPads.timestamp
+        )
+      }
+      if (endPads.values.length > 0) {
+        endPads.values.shift()
+        response.DataPoints[0].Values = response.DataPoints[0].Values.concat(endPads.values)
+      }
+
+      if (response.MetricName == 'Duration') {
+        this.aggrDurationP(responses, srcPeriod, dstPeriod)
+        continue
+      }
+
+      let result
+      switch (dstPeriod) {
+        case 300:
+          result = this.mergeByPeriod(response.DataPoints[0], srcPeriod, dstPeriod)
+          break
+        case 3600:
+          result = this.mergeByPeriod(response.DataPoints[0], srcPeriod, dstPeriod)
+          break
+        case 86400:
+          result = this.mergeByPeriod(response.DataPoints[0], srcPeriod, dstPeriod)
+          break
+      }
+      if (result) {
+        response.DataPoints[0].Timestamps = result.times
+        response.DataPoints[0].Values = result.values
+      }
+    }
   }
 
   async createService() {
