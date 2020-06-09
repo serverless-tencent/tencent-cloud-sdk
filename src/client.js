@@ -627,7 +627,6 @@ class SlsMonitor {
     return new Promise((resolve, reject) => {
       Promise.all(requestHandlers)
         .then((results) => {
-          console.log('getScfMetrics', JSON.stringify(results))
           this.aggrDatas(results, reqPeriod, period)
           resolve(results)
         })
