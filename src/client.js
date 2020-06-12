@@ -596,7 +596,13 @@ class SlsMonitor {
 
     const metrics = ['Invocation', 'Error', 'Duration']
 
-    const reqPeriod = 60
+    const diffDay =
+      (new Date(rangeTime.rangeEnd) - new Date(rangeTime.rangeStart)) / 1000 / 3600 / 24
+    let reqPeriod = 60
+    // cloud api limit
+    if (diffDay >= 3) {
+      reqPeriod = 3600
+    }
     const requestHandlers = []
     for (var i = 0; i < metrics.length; i++) {
       req.Namespace = 'qce/scf_v2'
