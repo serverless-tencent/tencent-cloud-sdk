@@ -563,8 +563,8 @@ class SlsMonitor {
         requestHandlers = []
       }
     }
-    if (requestHandlers.length == 0) {
-      console.log('getCustomMetrics', JSON.stringify(responses))
+    if (requestHandlers.length === 0) {
+      responses = this.cleanEmptyMetric(responses, metricAttributeHash)
       this.aggrCustomDatas(responses, period, metricAttributeHash)
       return responses
     }
@@ -572,10 +572,34 @@ class SlsMonitor {
       await SlsMonitor.sleep(1000)
     }
     results = await getMetricsResponse(requestHandlers)
+    results = this.cleanEmptyMetric(results, metricAttributeHash)
     responses = responses.concat(results)
-    console.log('getCustomMetrics', JSON.stringify(responses))
     this.aggrCustomDatas(responses, period, metricAttributeHash)
     return responses
+  }
+
+  cleanEmptyMetric(datas, metricAttributeHash) {
+    const metrics = []
+    const rule = /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_(.*)$/i
+    for (var i = 0; datas && i < datas.length; i++) {
+      const item = datas[i]
+      if (item.Response.Data.length === 0) {
+        continue
+      }
+      const name = metricAttributeHash[item.Response.Data[0].AttributeId].AttributeName
+      if (!name.match(rule)) {
+        metrics.push(item)
+        continue
+      }
+      for (var n = 0; n < item.Response.Data[0].Values.length; n++) {
+        const val = item.Response.Data[0].Values[n]
+        if (val.Value !== 0) {
+          metrics.push(item)
+          break
+        }
+      }
+    }
+    return metrics
   }
 
   async getScfMetrics(region, rangeTime, period, funcName, ns, version) {
