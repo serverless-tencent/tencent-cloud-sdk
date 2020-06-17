@@ -1,3 +1,10 @@
+## [0.1.8](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v0.1.7...v0.1.8) (2020-06-17)
+
+
+### Bug Fixes
+
+* filter express nextjs custom metrics ([#11](https://github.com/serverless-tencent/tencent-cloud-sdk/issues/11)) ([395d9ae](https://github.com/serverless-tencent/tencent-cloud-sdk/commit/395d9aea92914cada87e2a4ae71322a58dc8ec9d))
+
 ## [0.1.7](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v0.1.6...v0.1.7) (2020-06-12)
 
 
