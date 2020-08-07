@@ -825,6 +825,60 @@ class SlsMonitor {
     }
   }
 
+  async getApigwMetrics(region, rangeTime, period, serviceId, env) {
+    const metricName = ['NumOfReq', 'ResponseTime']
+    const client = new TencentCloudClient(
+      this.credentials,
+      {
+        host: 'monitor.tencentcloudapi.com',
+        path: '/'
+      },
+      {
+        region: region
+      }
+    )
+
+    const req = {
+      Action: 'GetMonitorData',
+      Version: '2018-07-24',
+      Namespace: 'QCE/APIGATEWAY',
+      Period: period,
+      StartTime: rangeTime.rangeStart,
+      EndTime: rangeTime.rangeEnd
+    }
+
+    const requestHandlers = []
+
+    for (let i = 0; i < metricName.length; i++) {
+      req.MetricName = metricName[i]
+      req.Instances = [
+        {
+          Dimensions: [
+            {
+              Name: 'environmentName',
+              Value: env || 'release'
+            },
+            {
+              Name: 'serviceId',
+              Value: serviceId
+            }
+          ]
+        }
+      ]
+      requestHandlers.push(client.doCloudApiRequest(req))
+    }
+
+    return new Promise((resolve, reject) => {
+      Promise.all(requestHandlers)
+        .then((results) => {
+          resolve(results)
+        })
+        .catch((error) => {
+          reject(error)
+        })
+    })
+  }
+
   async createService() {
     const client = new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
