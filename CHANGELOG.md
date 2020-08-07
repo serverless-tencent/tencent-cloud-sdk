@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v1.0.0...v1.0.1) (2020-08-07)
+
+
+### Bug Fixes
+
+* custom metrics response error ([ce58d71](https://github.com/serverless-tencent/tencent-cloud-sdk/commit/ce58d71db5d38a3e5867255ea1d23a7a23527037))
+
 # 1.0.0 (2020-08-07)
 
 
