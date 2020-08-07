@@ -583,6 +583,10 @@ class SlsMonitor {
     const rule = /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_(.*)$/i
     for (var i = 0; datas && i < datas.length; i++) {
       const item = datas[i]
+      if (item.Response.Error) {
+        console.log(item.Response.Error.Code, item.Response.Error.Message)
+        continue
+      }
       if (item.Response.Data.length === 0) {
         continue
       }
