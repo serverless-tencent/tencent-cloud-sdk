@@ -6,7 +6,7 @@ const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
 const _ = require('lodash')
 
-var defaults = {
+const DEFAULTS = {
   signatureMethod: 'HmacSHA1',
   method: 'GET',
   Region: 'ap-guangzhou',
@@ -23,7 +23,7 @@ class TencentCloudClient {
   async cloudApiGenerateQueryString(data) {
     var param = assign(
       {
-        Region: this.options.region || defaults.Region,
+        Region: this.options.region || DEFAULTS.Region,
         SecretId: this.credentials.SecretId,
         Timestamp: Math.round(Date.now() / 1000),
         Nonce: Math.round(Math.random() * 65535),
@@ -38,7 +38,7 @@ class TencentCloudClient {
     if (this.credentials.token) {
       param.token = this.credentials.token
     }
-    param.SignatureMethod = defaults.signatureMethod
+    param.SignatureMethod = DEFAULTS.signatureMethod
     param = dotQs.flatten(param)
     const { host, path } = this.service
     var keys = Object.keys(param)
@@ -59,7 +59,7 @@ class TencentCloudClient {
 
     const hmac = crypto.createHmac('sha1', this.credentials.SecretKey || '')
     param.Signature = hmac
-      .update(new Buffer.from(defaults.method.toUpperCase() + host + path + '?' + qstr, 'utf8'))
+      .update(new Buffer.from(DEFAULTS.method.toUpperCase() + host + path + '?' + qstr, 'utf8'))
       .digest('base64')
 
     return qs.stringify(param)
