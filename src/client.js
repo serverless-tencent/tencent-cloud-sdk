@@ -829,6 +829,41 @@ class SlsMonitor {
     }
   }
 
+  aggrApigwDatas(responses) {
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i].Response
+      if (response.Error) {
+        console.log(JSON.stringify(response.Error), response.RequestId)
+        continue
+      }
+      if (response.DataPoints[0].Timestamps.length == 0) {
+        continue
+      }
+
+      const startTime = new Date(response.StartTime)
+
+      let offset = 0
+      if (startTime.getTimezoneOffset() == 0) {
+        offset = 8 * 60 * 60
+      }
+      const startTimestamp = startTime.getTime() / 1000 - offset
+
+      const startPads = this.padPart(
+        startTimestamp,
+        response.DataPoints[0].Timestamps[0],
+        response.Period
+      )
+      if (startPads.timestamp.length > 0) {
+        response.DataPoints[0].Timestamps = startPads.timestamp.concat(
+          response.DataPoints[0].Timestamps
+        )
+      }
+      if (startPads.values.length > 0) {
+        response.DataPoints[0].Values = startPads.values.concat(response.DataPoints[0].Values)
+      }
+    }
+  }
+
   async getApigwMetrics(region, rangeTime, period, serviceId, env) {
     const metricName = ['NumOfReq', 'ResponseTime']
     const client = new TencentCloudClient(
@@ -875,6 +910,7 @@ class SlsMonitor {
     return new Promise((resolve, reject) => {
       Promise.all(requestHandlers)
         .then((results) => {
+          this.aggrApigwDatas(results)
           resolve(results)
         })
         .catch((error) => {
