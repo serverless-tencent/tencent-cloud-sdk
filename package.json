@@ -1,7 +1,7 @@
 {
   "name": "tencent-cloud-sdk",
   "description": "Tencent Cloud SDK For Serverless Framework",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "./index.js",
   "publishConfig": {
     "access": "public"
