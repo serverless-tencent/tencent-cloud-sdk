@@ -5,6 +5,7 @@ const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
 const _ = require('lodash')
+const sleep = require('sleep')
 
 const DEFAULTS = {
   signatureMethod: 'HmacSHA1',
@@ -497,7 +498,7 @@ class SlsMonitor {
   }
 
   async getCustomMetrics(region, announceInstance, rangeTime, period) {
-    const apiQPSLimit = 100
+    const apiQPSLimit = 80
     const metricsRule = [
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_latency$/i,
       /^(GET|POST|DEL|DELETE|PUT|OPTIONS|HEAD)_([a-zA-Z0-9]+)_(\d+)$/i,
@@ -555,7 +556,7 @@ class SlsMonitor {
 
       if (!((i + 1) % apiQPSLimit)) {
         if (i + 1 != apiQPSLimit) {
-          await SlsMonitor.sleep(1000)
+          sleep.sleep(1)
         }
         firstRequestFlag = false
         results = await getMetricsResponse(requestHandlers)
@@ -569,7 +570,7 @@ class SlsMonitor {
       return responses
     }
     if (!firstRequestFlag) {
-      await SlsMonitor.sleep(1000)
+      sleep.sleep(1)
     }
     results = await getMetricsResponse(requestHandlers)
     results = this.cleanEmptyMetric(results, metricAttributeHash)
