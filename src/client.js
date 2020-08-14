@@ -5,7 +5,6 @@ const request = require('../lib/request/index')
 const crypto = require('crypto')
 const cos = require('../lib/cos/cos')
 const _ = require('lodash')
-const sleep = require('sleep')
 
 const DEFAULTS = {
   signatureMethod: 'HmacSHA1',
@@ -466,7 +465,6 @@ class SlsMonitor {
   }
 
   async describeCCMInstanceDatas(id, instances, startTime, endTime, i, limit) {
-    
     const client = new TencentCloudClient(this.credentials, {
       host: 'monitor.tencentcloudapi.com',
       path: '/'
@@ -486,14 +484,15 @@ class SlsMonitor {
     if (!((i + 1) % limit)) {
       sleep = true
     }
-    return new Promise(function(resolve, rejecte) {
+
+    return new Promise(function(resolve) {
       if (!sleep) {
         return resolve(client.doCloudApiRequest(req))
       }
       setTimeout(function() {
         resolve(client.doCloudApiRequest(req))
       }, timeCost)
-    });
+    })
   }
 
   async describeAttributes(offset, limit) {
@@ -524,18 +523,6 @@ class SlsMonitor {
       /^5xx$/i
     ]
 
-    const getMetricsResponse = (promiseHandlers) => {
-      return new Promise((resolve, reject) => {
-        Promise.all(promiseHandlers)
-          .then((results) => {
-            resolve(results)
-          })
-          .catch((error) => {
-            reject(error)
-          })
-      })
-    }
-
     const filterAttributeName = function(name, mRule) {
       const len = mRule.length
       for (var i = 0; i < len; i++) {
@@ -547,37 +534,39 @@ class SlsMonitor {
     }
 
     const metricAttributeHash = {}
-    let requestHandlers = []
-    let responses = []
-    let results
-    let firstRequestFlag = true
+    const responses = []
     const attributes = await this.describeAttributes(0, 200)
     attributes.Response.Data.Data.push(attributes.Response.Data.Data[10])
 
     let i = 0
     const _this = this
     function run() {
-      if(attributes.Response.Data.Data.length > 0) {
+      if (attributes.Response.Data.Data.length > 0) {
         const metricAttribute = attributes.Response.Data.Data.shift()
         metricAttributeHash[metricAttribute.AttributeId] = metricAttribute
-
-        return _this.describeCCMInstanceDatas(
-          metricAttribute.AttributeId,
-          announceInstance,
-          rangeTime.rangeStart,
-          rangeTime.rangeEnd, 
-          i++, apiQPSLimit
-        ).then(res => {
-          responses.push(res)
+        if (!filterAttributeName(metricAttribute.AttributeName, metricsRule)) {
           return run()
-        })
+        }
+        return _this
+          .describeCCMInstanceDatas(
+            metricAttribute.AttributeId,
+            announceInstance,
+            rangeTime.rangeStart,
+            rangeTime.rangeEnd,
+            i++,
+            apiQPSLimit
+          )
+          .then((res) => {
+            responses.push(res)
+            return run()
+          })
       }
     }
 
     const promiseList = Array(Math.min(apiQPSLimit, attributes.Response.Data.Data.length))
       .fill(Promise.resolve())
-      .map(promise => promise.then(run))
-      
+      .map((promise) => promise.then(run))
+
     return Promise.all(promiseList).then(() => {
       this.aggrCustomDatas(responses, period, metricAttributeHash)
       return responses
