@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v1.0.3...v1.0.4) (2020-08-14)
+
+
+### Bug Fixes
+
+* yun api qps limit ([aaa1c70](https://github.com/serverless-tencent/tencent-cloud-sdk/commit/aaa1c70a39f21e9be27a6c14a7be56f519550811))
+
 ## [1.0.3](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v1.0.2...v1.0.3) (2020-08-13)
 
 
