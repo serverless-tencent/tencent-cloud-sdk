@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v1.0.4...v1.0.5) (2020-09-23)
+
+
+### Bug Fixes
+
+* metrics data bug ([ee1ecab](https://github.com/serverless-tencent/tencent-cloud-sdk/commit/ee1ecab6c42ed303202f1ff7acc4dab2cf28ea53))
+
 ## [1.0.4](https://github.com/serverless-tencent/tencent-cloud-sdk/compare/v1.0.3...v1.0.4) (2020-08-14)
 
 
