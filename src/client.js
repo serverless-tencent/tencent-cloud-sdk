@@ -543,6 +543,9 @@ class SlsMonitor {
     function run() {
       if (attributes.Response.Data.Data.length > 0) {
         const metricAttribute = attributes.Response.Data.Data.shift()
+        if (!metricAttribute || !metricAttribute.AttributeId || !metricAttribute.AttributeName) {
+          return run()
+        }
         metricAttributeHash[metricAttribute.AttributeId] = metricAttribute
         if (!filterAttributeName(metricAttribute.AttributeName, metricsRule)) {
           return run()
